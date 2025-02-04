@@ -7,7 +7,7 @@ from telegram.ext import filters
 from telegram.ext import ApplicationBuilder
 
 # Ganti dengan token bot Anda
-BOT_TOKEN = os.get.env('BOT_TOKEN_ANDA')
+BOT_TOKEN = os.environ.get('BOT_TOKEN_ANDA')
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN tidak ditemukan. Pastikan sudah diatur di environment variables.")
 
