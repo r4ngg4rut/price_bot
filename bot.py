@@ -2,13 +2,16 @@ import requests
 import json
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application,JobQueue, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import Application, JobQueue,  CommandHandler, MessageHandler, filters, CallbackContext
 
 # Ganti dengan token bot Anda
-TOKEN = os.environ.get('YOUR_TELEGRAM_BOT_TOKEN')
+TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 
 # File untuk menyimpan token favorit
 FAVORITES_FILE = 'favorites.json'
+
+# File untuk menyimpan pair yang sudah dideteksi
+DETECTED_PAIRS_FILE = 'detected_pairs.json'
 
 # Fungsi untuk memuat token favorit dari file
 def load_favorites():
@@ -22,16 +25,21 @@ def save_favorites(favorites):
     with open(FAVORITES_FILE, 'w') as file:
         json.dump(favorites, file)
 
-# Fungsi untuk mendapatkan data pair dari DexScreener
-def get_pair_data(pair_address):
-    url = f"https://api.dexscreener.com/latest/dex/pairs/{pair_address}"
-    response = requests.get(url)
-    data = response.json()
-    return data.get('pair', {})
+# Fungsi untuk memuat pair yang sudah dideteksi
+def load_detected_pairs():
+    if os.path.exists(DETECTED_PAIRS_FILE):
+        with open(DETECTED_PAIRS_FILE, 'r') as file:
+            return json.load(file)
+    return []
 
-# Fungsi untuk mencari pair dari DexScreener
-def search_pair(query):
-    url = f"https://api.dexscreener.com/latest/dex/search?q={query}"
+# Fungsi untuk menyimpan pair yang sudah dideteksi
+def save_detected_pairs(detected_pairs):
+    with open(DETECTED_PAIRS_FILE, 'w') as file:
+        json.dump(detected_pairs, file)
+
+# Fungsi untuk mendapatkan new pair dari DexScreener
+def get_new_pairs(network):
+    url = f"https://api.dexscreener.com/latest/dex/pairs/{network}"
     response = requests.get(url)
     data = response.json()
     return data.get('pairs', [])
@@ -131,24 +139,47 @@ async def handle_message(update: Update, context: CallbackContext):
     )
     await update.message.reply_text(message, reply_markup=reply_markup)
 
-# Fungsi untuk memeriksa harga pair favorit
-async def check_favorite_prices(context: CallbackContext):
-    favorites = load_favorites()
-    for user_id, pairs in favorites.items():
-        for pair_address in pairs:
-            pair_data = get_pair_data(pair_address)
-            if pair_data:
-                base_token = pair_data['baseToken']['name']
-                quote_token = pair_data['quoteToken']['symbol']
-                price_usd = pair_data['priceUsd']
-                price_change = pair_data['priceChange']['h24']
+# Fungsi untuk memeriksa new pair dan mengirim notifikasi
+async def check_new_pairs(context: CallbackContext):
+    # Daftar jaringan yang dipantau
+    networks = ['ethereum', 'bsc', 'polygon']  # Tambahkan jaringan lain jika diperlukan
+
+    for network in networks:
+        new_pairs = get_new_pairs(network)
+        detected_pairs = load_detected_pairs()
+
+        for pair in new_pairs:
+            pair_address = pair['pairAddress']
+            if pair_address not in detected_pairs:
+                # Kirim notifikasi ke chat atau grup
+                base_token = pair['baseToken']['name']
+                quote_token = pair['quoteToken']['symbol']
+                price_usd = pair['priceUsd']
+                liquidity = pair['liquidity']['usd']
+                fdv = pair['fdv']
+                price_change = pair['priceChange']['h24']
+
+                # Buat tombol Buy
+                keyboard = [
+                    [InlineKeyboardButton("Buy", url=f"https://dexscreener.com/{network}/{pair_address}")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+
+                # Kirim pesan dengan tombol
                 message = (
-                    f"💰 Harga Pair Favorit\n"
+                    f"🚀 New Pair Detected!\n"
+                    f"🔹 Network: {network}\n"
                     f"🔹 Pair: {base_token}/{quote_token}\n"
                     f"🔹 Harga: ${price_usd}\n"
+                    f"🔹 Liquidity: ${liquidity:,.2f}\n"
+                    f"🔹 FDV: ${fdv:,.2f}\n"
                     f"🔹 24h Change: {price_change:.2f}%"
                 )
-                await context.bot.send_message(chat_id=user_id, text=message)
+                await context.bot.send_message(chat_id=CHAT_ID, text=message, reply_markup=reply_markup)
+
+                # Simpan pair yang sudah dideteksi
+                detected_pairs.append(pair_address)
+                save_detected_pairs(detected_pairs)
 
 # Main function
 def main():
@@ -169,11 +200,13 @@ def main():
     # Message handler untuk pesan teks biasa
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Jadwalkan pengecekan harga pair favorit setiap 1 jam
-    application.job_queue.run_repeating(check_favorite_prices, interval=3600, first=0)  # 3600 detik = 1 jam
+    # Jadwalkan pengecekan new pair setiap 5 menit
+    application.job_queue.run_repeating(check_new_pairs, interval=300, first=0)  # 300 detik = 5 menit
 
     # Mulai bot
     application.run_polling()
 
 if __name__ == '__main__':
+    # Ganti dengan chat ID tujuan (bisa chat pribadi atau grup)
+    CHAT_ID = 'YOUR_CHAT_ID'  # Contoh: 123456789 (chat pribadi) atau -1001234567890 (grup)
     main()
