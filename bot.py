@@ -2,7 +2,7 @@ import requests
 import json
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import Application,JobQueue, CommandHandler, MessageHandler, filters, CallbackContext
 
 # Ganti dengan token bot Anda
 TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
@@ -154,6 +154,11 @@ async def check_favorite_prices(context: CallbackContext):
 def main():
     # Inisialisasi Application
     application = Application.builder().token(TOKEN).build()
+
+    # Pastikan job_queue aktif
+    job_queue = application.job_queue
+    if job_queue is None:
+        raise ValueError("JobQueue tidak tersedia! Pastikan PTB diinstal dengan job-queue.")
 
     # Command handlers
     application.add_handler(CommandHandler("start", start))
