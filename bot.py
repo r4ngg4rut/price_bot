@@ -6,7 +6,9 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContex
 from telegram.ext import filters
 
 # Ganti dengan token bot Anda
-TELEGRAM_BOT_TOKEN = os.getenv('YOUR_TELEGRAM_BOT_TOKEN')
+TOKEN = os.getenv('YOUR_TELEGRAM_BOT_TOKEN')
+if not TOKEN:
+    raise ValueError("❌ BOT_TOKEN tidak ditemukan. Pastikan sudah diatur di environment variables.")
 
 # File untuk menyimpan token favorit
 FAVORITES_FILE = 'favorites.json'
@@ -152,9 +154,16 @@ def check_favorite_prices(context: CallbackContext):
                 context.bot.send_message(chat_id=user_id, text=message)
 
 # Main function
+def start(update, context):
+    update.message.reply_text("✅ Bot sedang berjalan!")
+
 def main():
-    updater = Updater(TOKEN)
-    dispatcher = updater.dispatcher
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+
+    print("✅ Bot telah dimulai...")
+    app.run_polling()
 
     # Command handlers
     dispatcher.add_handler(CommandHandler("start", start))
