@@ -2,14 +2,10 @@ import requests
 import json
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
-from telegram.ext import filters
-from telegram.ext import ApplicationBuilder
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 # Ganti dengan token bot Anda
-BOT_TOKEN = os.environ.get('BOT_TOKEN_ANDA')
-if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN tidak ditemukan. Pastikan sudah diatur di environment variables.")
+TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 
 # File untuk menyimpan token favorit
 FAVORITES_FILE = 'favorites.json'
@@ -41,8 +37,8 @@ def search_pair(query):
     return data.get('pairs', [])
 
 # Command /start
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text(
         'Selamat datang! Gunakan perintah berikut:\n'
         '/addfavorite <pair_address> - Tambahkan pair favorit\n'
         '/listfavorites - Lihat daftar pair favorit\n'
@@ -51,12 +47,12 @@ def start(update: Update, context: CallbackContext):
     )
 
 # Command /addfavorite
-def add_favorite(update: Update, context: CallbackContext):
+async def add_favorite(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     pair_address = ' '.join(context.args).strip()
 
     if not pair_address:
-        update.message.reply_text('Masukkan alamat pair. Contoh: /addfavorite 0x123...')
+        await update.message.reply_text('Masukkan alamat pair. Contoh: /addfavorite 0x123...')
         return
 
     favorites = load_favorites()
@@ -64,49 +60,49 @@ def add_favorite(update: Update, context: CallbackContext):
         favorites[str(user_id)] = []
 
     if pair_address in favorites[str(user_id)]:
-        update.message.reply_text('Pair sudah ada di daftar favorit.')
+        await update.message.reply_text('Pair sudah ada di daftar favorit.')
     else:
         favorites[str(user_id)].append(pair_address)
         save_favorites(favorites)
-        update.message.reply_text(f'Pair {pair_address} berhasil ditambahkan ke favorit.')
+        await update.message.reply_text(f'Pair {pair_address} berhasil ditambahkan ke favorit.')
 
 # Command /listfavorites
-def list_favorites(update: Update, context: CallbackContext):
+async def list_favorites(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     favorites = load_favorites()
 
     if str(user_id) not in favorites or not favorites[str(user_id)]:
-        update.message.reply_text('Anda belum menambahkan pair favorit.')
+        await update.message.reply_text('Anda belum menambahkan pair favorit.')
     else:
         message = "Daftar Pair Favorit Anda:\n"
         for pair in favorites[str(user_id)]:
             message += f"- {pair}\n"
-        update.message.reply_text(message)
+        await update.message.reply_text(message)
 
 # Command /removefavorite
-def remove_favorite(update: Update, context: CallbackContext):
+async def remove_favorite(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     pair_address = ' '.join(context.args).strip()
 
     if not pair_address:
-        update.message.reply_text('Masukkan alamat pair. Contoh: /removefavorite 0x123...')
+        await update.message.reply_text('Masukkan alamat pair. Contoh: /removefavorite 0x123...')
         return
 
     favorites = load_favorites()
     if str(user_id) not in favorites or pair_address not in favorites[str(user_id)]:
-        update.message.reply_text('Pair tidak ditemukan di daftar favorit.')
+        await update.message.reply_text('Pair tidak ditemukan di daftar favorit.')
     else:
         favorites[str(user_id)].remove(pair_address)
         save_favorites(favorites)
-        update.message.reply_text(f'Pair {pair_address} berhasil dihapus dari favorit.')
+        await update.message.reply_text(f'Pair {pair_address} berhasil dihapus dari favorit.')
 
 # Handler untuk pesan teks biasa (cari pair berdasarkan ticker atau nama)
-def handle_message(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: CallbackContext):
     user_input = update.message.text.strip().lower()
     pairs = search_pair(user_input)
 
     if not pairs:
-        update.message.reply_text('Pair tidak ditemukan. Coba lagi dengan ticker atau nama yang valid.')
+        await update.message.reply_text('Pair tidak ditemukan. Coba lagi dengan ticker atau nama yang valid.')
         return
 
     pair = pairs[0]
@@ -133,10 +129,10 @@ def handle_message(update: Update, context: CallbackContext):
         f"🔹 FDV: ${fdv:,.2f}\n"
         f"🔹 24h Change: {price_change:.2f}%"
     )
-    update.message.reply_text(message, reply_markup=reply_markup)
+    await update.message.reply_text(message, reply_markup=reply_markup)
 
 # Fungsi untuk memeriksa harga pair favorit
-def check_favorite_prices(context: CallbackContext):
+async def check_favorite_prices(context: CallbackContext):
     favorites = load_favorites()
     for user_id, pairs in favorites.items():
         for pair_address in pairs:
@@ -152,19 +148,12 @@ def check_favorite_prices(context: CallbackContext):
                     f"🔹 Harga: ${price_usd}\n"
                     f"🔹 24h Change: {price_change:.2f}%"
                 )
-                context.bot.send_message(chat_id=user_id, text=message)
+                await context.bot.send_message(chat_id=user_id, text=message)
 
 # Main function
-def start(update, context):
-    update.message.reply_text("✅ Bot sedang berjalan!")
-
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-
-    print("✅ Bot telah dimulai...")
-    app.run_polling()
+    updater = Updater(TOKEN)
+    dispatcher = updater.dispatcher
 
     # Command handlers
     dispatcher.add_handler(CommandHandler("start", start))
