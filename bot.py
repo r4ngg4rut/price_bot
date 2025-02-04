@@ -2,7 +2,7 @@ import requests
 import json
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
 # Ganti dengan token bot Anda
 TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
@@ -152,25 +152,23 @@ async def check_favorite_prices(context: CallbackContext):
 
 # Main function
 def main():
-    updater = Updater(TOKEN)
-    dispatcher = updater.dispatcher
+    # Inisialisasi Application
+    application = Application.builder().token(TOKEN).build()
 
     # Command handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("addfavorite", add_favorite))
-    dispatcher.add_handler(CommandHandler("listfavorites", list_favorites))
-    dispatcher.add_handler(CommandHandler("removefavorite", remove_favorite))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("addfavorite", add_favorite))
+    application.add_handler(CommandHandler("listfavorites", list_favorites))
+    application.add_handler(CommandHandler("removefavorite", remove_favorite))
 
     # Message handler untuk pesan teks biasa
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Jadwalkan pengecekan harga pair favorit setiap 1 jam
-    job_queue = updater.job_queue
-    job_queue.run_repeating(check_favorite_prices, interval=3600, first=0)  # 3600 detik = 1 jam
+    application.job_queue.run_repeating(check_favorite_prices, interval=3600, first=0)  # 3600 detik = 1 jam
 
     # Mulai bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
