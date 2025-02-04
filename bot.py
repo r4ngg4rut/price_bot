@@ -3,6 +3,9 @@ import json
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # Ganti dengan token bot Anda
 TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
