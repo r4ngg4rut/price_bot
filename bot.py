@@ -6,7 +6,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContex
 from telegram.ext import filters
 
 # Ganti dengan token bot Anda
-TOKEN = os.getenv('YOUR_TELEGRAM_BOT_TOKEN')
+TELEGRAM_BOT_TOKEN = os.getenv('YOUR_TELEGRAM_BOT_TOKEN')
 
 # File untuk menyimpan token favorit
 FAVORITES_FILE = 'favorites.json'
