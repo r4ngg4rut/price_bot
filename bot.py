@@ -4,10 +4,11 @@ import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
 from telegram.ext import filters
+from telegram.ext import ApplicationBuilder
 
 # Ganti dengan token bot Anda
-TOKEN = os.getenv('YOUR_TELEGRAM_BOT_TOKEN')
-if not TOKEN:
+BOT_TOKEN = os.get.env('BOT_TOKEN_ANDA)'
+if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN tidak ditemukan. Pastikan sudah diatur di environment variables.")
 
 # File untuk menyimpan token favorit
@@ -158,7 +159,7 @@ def start(update, context):
     update.message.reply_text("✅ Bot sedang berjalan!")
 
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
 
