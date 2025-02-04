@@ -2,7 +2,8 @@ import requests
 import json
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
+from telegram.ext import filters
 
 # Ganti dengan token bot Anda
 TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
