@@ -1,17 +1,26 @@
 import requests
 import json
 import os
+import logging
+import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, JobQueue,  CommandHandler, MessageHandler, filters, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
 # Ganti dengan token bot Anda
-TOKEN = os.environ.get('YOUR_TELEGRAM_BOT_TOKEN')
+TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 
 # File untuk menyimpan token favorit
 FAVORITES_FILE = 'favorites.json'
 
 # File untuk menyimpan pair yang sudah dideteksi
 DETECTED_PAIRS_FILE = 'detected_pairs.json'
+
+# Jaringan yang dipantau
+NETWORKS = ['ethereum', 'bsc', 'polygon']
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Fungsi untuk memuat token favorit dari file
 def load_favorites():
@@ -37,12 +46,29 @@ def save_detected_pairs(detected_pairs):
     with open(DETECTED_PAIRS_FILE, 'w') as file:
         json.dump(detected_pairs, file)
 
-# Fungsi untuk mendapatkan new pair dari DexScreener
-def get_new_pairs(network):
-    url = f"https://api.dexscreener.com/latest/dex/pairs/{network}"
-    response = requests.get(url)
-    data = response.json()
-    return data.get('pairs', [])
+# Fungsi untuk mendapatkan data pair dari DexScreener
+async def get_pair_data(pair_address):
+    try:
+        url = f"https://api.dexscreener.com/latest/dex/pairs/{pair_address}"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        return data.get('pair', {})
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching pair data: {e}")
+        return {}
+
+# Fungsi untuk mencari pair dari DexScreener
+async def search_pair(query):
+    try:
+        url = f"https://api.dexscreener.com/latest/dex/search?q={query}"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        return data.get('pairs', [])
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error searching pair: {e}")
+        return []
 
 # Command /start
 async def start(update: Update, context: CallbackContext):
@@ -107,7 +133,7 @@ async def remove_favorite(update: Update, context: CallbackContext):
 # Handler untuk pesan teks biasa (cari pair berdasarkan ticker atau nama)
 async def handle_message(update: Update, context: CallbackContext):
     user_input = update.message.text.strip().lower()
-    pairs = search_pair(user_input)
+    pairs = await search_pair(user_input)
 
     if not pairs:
         await update.message.reply_text('Pair tidak ditemukan. Coba lagi dengan ticker atau nama yang valid.')
@@ -141,12 +167,11 @@ async def handle_message(update: Update, context: CallbackContext):
 
 # Fungsi untuk memeriksa new pair dan mengirim notifikasi
 async def check_new_pairs(context: CallbackContext):
-    # Daftar jaringan yang dipantau
-    networks = ['ethereum', 'bsc', 'polygon']  # Tambahkan jaringan lain jika diperlukan
+    detected_pairs = load_detected_pairs()
 
-    for network in networks:
-        new_pairs = get_new_pairs(network)
-        detected_pairs = load_detected_pairs()
+    for network in NETWORKS:
+        new_pairs = await search_pair(network)
+        time.sleep(1)  # Jeda 1 detik antara setiap permintaan
 
         for pair in new_pairs:
             pair_address = pair['pairAddress']
@@ -185,11 +210,6 @@ async def check_new_pairs(context: CallbackContext):
 def main():
     # Inisialisasi Application
     application = Application.builder().token(TOKEN).build()
-
-    # Pastikan job_queue aktif
-    job_queue = application.job_queue
-    if job_queue is None:
-        raise ValueError("JobQueue tidak tersedia! Pastikan PTB diinstal dengan job-queue.")
 
     # Command handlers
     application.add_handler(CommandHandler("start", start))
