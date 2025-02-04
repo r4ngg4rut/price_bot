@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, JobQueue,  CommandHandler, MessageHandler, filters, CallbackContext
 
 # Ganti dengan token bot Anda
-TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+TOKEN = os.environ.get('YOUR_TELEGRAM_BOT_TOKEN')
 
 # File untuk menyimpan token favorit
 FAVORITES_FILE = 'favorites.json'
