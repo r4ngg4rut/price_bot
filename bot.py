@@ -133,38 +133,74 @@ async def remove_favorite(update: Update, context: CallbackContext):
 # Handler untuk pesan teks biasa (cari pair berdasarkan ticker atau nama)
 async def handle_message(update: Update, context: CallbackContext):
     user_input = update.message.text.strip().lower()
-    pairs = await search_pair(user_input)
 
-    if not pairs:
-        await update.message.reply_text('Pair tidak ditemukan. Coba lagi dengan ticker atau nama yang valid.')
-        return
+    # Cek apakah pesan mengandung format "nilai token" (contoh: "200 ETH")
+    if ' ' in user_input:
+        try:
+            # Pisahkan nilai dan simbol token
+            value, token_symbol = user_input.split(' ', 1)
+            value = float(value)  # Konversi nilai ke float
+            token_symbol = token_symbol.upper()  # Konversi simbol token ke huruf besar
 
-    pair = pairs[0]
-    pair_address = pair['pairAddress']
-    base_token = pair['baseToken']['name']
-    quote_token = pair['quoteToken']['symbol']
-    price_usd = pair['priceUsd']
-    liquidity = pair['liquidity']['usd']
-    fdv = pair['fdv']
-    price_change = pair['priceChange']['h24']
+            # Cari harga token saat ini
+            pairs = await search_pair(token_symbol)
+            if not pairs:
+                await update.message.reply_text(f"Token {token_symbol} tidak ditemukan.")
+                return
 
-    # Buat tombol Buy
-    keyboard = [
-        [InlineKeyboardButton("Buy", url=f"https://dexscreener.com/{pair['chainId']}/{pair_address}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+            # Ambil pair pertama yang ditemukan
+            pair = pairs[0]
+            price_usd = float(pair['priceUsd'])
 
-    # Kirim pesan dengan tombol
-    message = (
-        f"🔍 Pair Ditemukan!\n"
-        f"🔹 Pair: {base_token}/{quote_token}\n"
-        f"🔹 Harga: ${price_usd}\n"
-        f"🔹 Liquidity: ${liquidity:,.2f}\n"
-        f"🔹 FDV: ${fdv:,.2f}\n"
-        f"🔹 24h Change: {price_change:.2f}%"
-    )
-    await update.message.reply_text(message, reply_markup=reply_markup)
+            # Hitung hasil perkalian
+            total_value = value * price_usd
 
+            # Kirim hasil ke pengguna
+            message = (
+                f"💸 Hasil Perhitungan:\n"
+                f"🔹 {value} {token_symbol} = ${total_value:,.2f}\n"
+                f"🔹 Harga {token_symbol} saat ini: ${price_usd:,.2f}"
+            )
+            await update.message.reply_text(message)
+
+        except ValueError:
+            await update.message.reply_text("Format tidak valid. Contoh: '200 ETH'.")
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+            await update.message.reply_text("Terjadi kesalahan. Silakan coba lagi.")
+
+    else:
+        # Jika pesan tidak sesuai format, cari pair seperti biasa
+        pairs = await search_pair(user_input)
+        if not pairs:
+            await update.message.reply_text('Pair tidak ditemukan. Coba lagi dengan ticker atau nama yang valid.')
+            return
+
+        pair = pairs[0]
+        pair_address = pair['pairAddress']
+        base_token = pair['baseToken']['name']
+        quote_token = pair['quoteToken']['symbol']
+        price_usd = pair['priceUsd']
+        liquidity = pair['liquidity']['usd']
+        fdv = pair['fdv']
+        price_change = pair['priceChange']['h24']
+
+        # Buat tombol Buy
+        keyboard = [
+            [InlineKeyboardButton("Buy", url=f"https://dexscreener.com/{pair['chainId']}/{pair_address}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        # Kirim pesan dengan tombol
+        message = (
+            f"🔍 Pair Ditemukan!\n"
+            f"🔹 Pair: {base_token}/{quote_token}\n"
+            f"🔹 Harga: ${price_usd}\n"
+            f"🔹 Liquidity: ${liquidity:,.2f}\n"
+            f"🔹 FDV: ${fdv:,.2f}\n"
+            f"🔹 24h Change: {price_change:.2f}%"
+        )
+        await update.message.reply_text(message, reply_markup=reply_markup)
 # Fungsi untuk memeriksa new pair dan mengirim notifikasi
 async def check_new_pairs(context: CallbackContext):
     detected_pairs = load_detected_pairs()
